@@ -1,0 +1,1 @@
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   -g -Wl,-search_paths_first -Wl,-headerpad_max_install_names  CMakeFiles/pdp_zobecnena_bisekcni_sirka.dir/main.cpp.o  -o pdp_zobecnena_bisekcni_sirka 
