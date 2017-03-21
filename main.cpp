@@ -7,6 +7,8 @@
 
 using namespace std;
 
+vector<int> state, result, edgesList;
+
 void help() {
     cout << "spouštění: ./main n k graphFile a" << endl << endl;
     cout << "n = přirozené číslo představující počet uzlů grafu G, n >= 10" << endl;
@@ -44,12 +46,10 @@ int price(vector<vector<bool>>& graph, vector<int> state) {
     int edges = 0;
 
     for (int i = 0; i < state.size(); ++i) {
-        for (int j = 0; j < graph.size(); ++j) {
-            if ( graph[state[i]][j] == 1 ) edges++;
-        }
         for (int j = i + 1; j < state.size(); ++j) {
             if ( graph[state[i]][state[j]] == 1 ) sameEdges++;
         }
+        edges += edgesList[state[i]];
     }
 
     return edges - sameEdges * 2;
@@ -77,9 +77,7 @@ bool BBDFS(uint a, vector<vector<bool>> graph, vector<int> state, uint &minPrice
                 }
                 //cout << tmpPrice << ": " << state;
             }
-            if ( tmpPrice <= minPrice ) {
                 BBDFS(a, graph, state, minPrice, depth + 1, result);
-            }
             state.pop_back();
         }
     } else {
@@ -127,7 +125,7 @@ int main(int argc, char const* argv[]) {
     }
 
     cout << "n = " << n << ", k = " << k << ", a = " << a << endl;
-    //printGraph(graph, nodes);
+    printGraph(graph, nodes);
 
     uint edges = 0;
     for (int i = 0; i < n; ++i) {
@@ -135,7 +133,16 @@ int main(int argc, char const* argv[]) {
             if ( graph[i][j] == 1 ) edges++;
         }
     }
-    vector<int> state, result;
+
+    int tmpEdges = 0;
+    for (int i = 0; i < graph.size(); ++i) {
+        for (int j = 0; j < graph.size(); ++j) {
+            if (graph[i][j] == 1) tmpEdges++;
+        }
+        edgesList.push_back(tmpEdges);
+        tmpEdges = 0;
+    }
+
     clock_t timeStart = clock();
     BBDFS(a, graph, state, edges, 0, result);
     double duration = ( clock() - timeStart ) / (double) CLOCKS_PER_SEC;
