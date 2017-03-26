@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-#include <set>
 #include <fstream>
 
 using namespace std;
@@ -32,7 +31,7 @@ ostream& operator<<(ostream& os, vector<int>& graph)
     return os;
 }
 
-void printGraph(vector<vector<bool>> graph, int nodes) {
+void printGraph(vector<vector<bool>>& graph, int nodes) {
     for (int i = 0; i < nodes; ++i) {
         for (int j = 0; j < nodes; ++j) {
             cout << graph[i][j] << " ";
@@ -41,12 +40,12 @@ void printGraph(vector<vector<bool>> graph, int nodes) {
     }
 }
 
-int price(vector<vector<bool>>& graph, vector<int> state) {
+int price(vector<vector<bool>>& graph, vector<int>& state, int stateSize) {
     int sameEdges = 0;
     int edges = 0;
 
-    for (int i = 0; i < state.size(); ++i) {
-        for (int j = i + 1; j < state.size(); ++j) {
+    for (int i = 0; i < stateSize; ++i) {
+        for (int j = i + 1; j < stateSize; ++j) {
             if ( graph[state[i]][state[j]] == 1 ) sameEdges++;
         }
         edges += edgesList[state[i]];
@@ -55,7 +54,7 @@ int price(vector<vector<bool>>& graph, vector<int> state) {
     return edges - sameEdges * 2;
 }
 
-bool BBDFS(uint a, vector<vector<bool>> graph, vector<int> state, uint &minPrice, uint depth, vector<int> &result) {
+bool BBDFS(uint &a, uint &n, vector<vector<bool>>& graph, vector<int> state, uint stateSize, uint &minPrice, uint depth, vector<int> &result) {
 
     int firstNode;
     int tmpPrice;
@@ -64,20 +63,22 @@ bool BBDFS(uint a, vector<vector<bool>> graph, vector<int> state, uint &minPrice
         if ( depth == 0 ) {
             firstNode = 0;
         } else {
-            firstNode = state[state.size() - 1] + 1;
+            firstNode = state[stateSize - 1] + 1;
         }
-        for (int i = firstNode; i < graph.size(); ++i) {
+        for (int i = firstNode; i < n; ++i) {
             state.push_back(i);
-            tmpPrice = price(graph, state);
-            if ( state.size() == a ) {
-                tmpPrice = price(graph, state);
+            tmpPrice = price(graph, state, stateSize + 1);
+            if ( (stateSize + 1) == a ) {
+                //tmpPrice = price(graph, state, stateSize + 1);
                 if (tmpPrice < minPrice) {
                     minPrice = tmpPrice;
                     result = state;
                 }
                 //cout << tmpPrice << ": " << state;
             }
-                BBDFS(a, graph, state, minPrice, depth + 1, result);
+            if ( tmpPrice <= (minPrice + stateSize)) {
+                BBDFS(a, n, graph, state, stateSize + 1, minPrice, depth + 1, result);
+            }
             state.pop_back();
         }
     } else {
@@ -125,7 +126,7 @@ int main(int argc, char const* argv[]) {
     }
 
     cout << "n = " << n << ", k = " << k << ", a = " << a << endl;
-    printGraph(graph, nodes);
+    //printGraph(graph, nodes);
 
     uint edges = 0;
     for (int i = 0; i < n; ++i) {
@@ -135,8 +136,8 @@ int main(int argc, char const* argv[]) {
     }
 
     int tmpEdges = 0;
-    for (int i = 0; i < graph.size(); ++i) {
-        for (int j = 0; j < graph.size(); ++j) {
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
             if (graph[i][j] == 1) tmpEdges++;
         }
         edgesList.push_back(tmpEdges);
@@ -144,7 +145,7 @@ int main(int argc, char const* argv[]) {
     }
 
     clock_t timeStart = clock();
-    BBDFS(a, graph, state, edges, 0, result);
+    BBDFS(a, n, graph, state, 0, edges, 0, result);
     double duration = ( clock() - timeStart ) / (double) CLOCKS_PER_SEC;
 
     cout << "n = " << result;
