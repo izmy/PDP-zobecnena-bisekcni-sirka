@@ -4,7 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <math.h>
-#include <queue>
+#include <deque>
 
 using namespace std;
 
@@ -74,11 +74,8 @@ bool BBDFSSec(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state,
             if ( (stateSize + 1) == a ) {
                 tmpPrice = price(graph, state, stateSize + 1);
                 if (tmpPrice < minPrice) {
-#pragma omp critical
-                    {
-                        minPrice = tmpPrice;
-                        result = state;
-                    }
+                    minPrice = tmpPrice;
+                    result = state;
                 }
                 //cout << tmpPrice << ": " << state;
             }
@@ -96,27 +93,31 @@ bool BBDFSSec(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state,
 }
 
 struct DFSState {
-    int depth;
+    uint depth;
     vector<int> state;
-    int stateSize;
+    uint stateSize;
+    uint minPrice;
 };
 
 bool BBDFSPar(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state, uint stateSize, uint &minPrice, uint depth, vector<int> &result) {
 
-    queue<DFSState> q;
+    deque<DFSState> q;
 
     DFSState init;
     init.depth = depth;
     init.state = state;
     init.stateSize = stateSize;
+    init.minPrice = minPrice;
 
     int firstNode;
+    uint tmpPrice = minPrice;
+    vector<int> tmpResult;
 
-    q.push(init);
+    q.push_back(init);
 
-    while(q.size() < a) {
+    while(q.size() < n*2) {
         DFSState current = q.front();
-        q.pop();
+        q.pop_front();
 
         if ( current.depth == 0 ) {
             firstNode = 0;
@@ -132,16 +133,31 @@ bool BBDFSPar(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state,
             next.state.push_back(i);
             next.stateSize = current.stateSize + 1;
             next.depth = current.depth + 1;
-            q.push(next);
+            next.minPrice = minPrice;
+            q.push_back(next);
             //cout << next.state;
         }
 
     }
 
+    cout << "queue size = " << q.size() << endl;
+
+    #pragma omp parallel for schedule(dynamic) num_threads(4)
     for (int i = 0; i < q.size(); ++i) {
-        DFSState current = q.front();
-        BBDFSSec(a, n, graph, current.state, current.stateSize, minPrice, current.depth, result);
+        DFSState current = q[i];
+        BBDFSSec(a, n, graph, current.state, current.stateSize, current.minPrice, current.depth, result);
+            #pragma omp critical
+            {
+                if (current.minPrice < tmpPrice) {
+                    tmpPrice = current.minPrice;
+                    tmpResult = result;
+                    cout << tmpPrice << ": " << tmpResult;
+                }
+            }
     }
+
+    minPrice = tmpPrice;
+    result = tmpResult;
 
     return 1;
 }
@@ -241,17 +257,13 @@ int main(int argc, char const* argv[]) {
 
     threshold = a - floor(a/3);
 
-    cout << "threshold = " << threshold << endl;
+    //cout << "threshold = " << threshold << endl;
 
     clock_t timeStart = clock();
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            //BBDFSSec(a, n, graph, state, 0, edges, 0, result);
-            BBDFSPar(a, n, graph, state, 0, edges, 0, result);
-        }
-    }
+
+    //BBDFSSec(a, n, graph, state, 0, edges, 0, result);
+    BBDFSPar(a, n, graph, state, 0, edges, 0, result);
+
     double duration = (clock() - timeStart) / (double) CLOCKS_PER_SEC;
 
     cout << "n = " << result;
