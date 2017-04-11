@@ -3,9 +3,12 @@
 #include <stdlib.h>
 #include <vector>
 #include <fstream>
+#include <math.h>
+#include <queue>
 
 using namespace std;
 
+int threshold;
 vector<int> state, result, edgesList;
 
 void help() {
@@ -31,7 +34,7 @@ ostream& operator<<(ostream& os, vector<int>& graph)
     return os;
 }
 
-void printGraph(vector<vector<bool>>& graph, int nodes) {
+void printGraph(vector<vector<bool> >& graph, int nodes) {
     for (int i = 0; i < nodes; ++i) {
         for (int j = 0; j < nodes; ++j) {
             cout << graph[i][j] << " ";
@@ -40,7 +43,7 @@ void printGraph(vector<vector<bool>>& graph, int nodes) {
     }
 }
 
-int price(vector<vector<bool>>& graph, vector<int>& state, int stateSize) {
+int price(vector<vector<bool> >& graph, vector<int>& state, int stateSize) {
     int sameEdges = 0;
     int edges = 0;
 
@@ -54,7 +57,7 @@ int price(vector<vector<bool>>& graph, vector<int>& state, int stateSize) {
     return edges - sameEdges * 2;
 }
 
-bool BBDFS(uint &a, uint &n, vector<vector<bool>>& graph, vector<int> state, uint stateSize, uint &minPrice, uint depth, vector<int> &result) {
+bool BBDFSSec(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state, uint stateSize, uint &minPrice, uint depth, vector<int> &result) {
 
     int firstNode;
     int tmpPrice;
@@ -67,18 +70,21 @@ bool BBDFS(uint &a, uint &n, vector<vector<bool>>& graph, vector<int> state, uin
         }
         for (int i = firstNode; i < n; ++i) {
             state.push_back(i);
-            tmpPrice = price(graph, state, stateSize + 1);
+            //tmpPrice = price(graph, state, stateSize + 1);
             if ( (stateSize + 1) == a ) {
-                //tmpPrice = price(graph, state, stateSize + 1);
+                tmpPrice = price(graph, state, stateSize + 1);
                 if (tmpPrice < minPrice) {
-                    minPrice = tmpPrice;
-                    result = state;
+#pragma omp critical
+                    {
+                        minPrice = tmpPrice;
+                        result = state;
+                    }
                 }
                 //cout << tmpPrice << ": " << state;
             }
-            if ( tmpPrice <= (minPrice + stateSize)) {
-                BBDFS(a, n, graph, state, stateSize + 1, minPrice, depth + 1, result);
-            }
+            //if ( tmpPrice <= (minPrice + stateSize)) {
+            BBDFSSec(a, n, graph, state, stateSize + 1, minPrice, depth + 1, result);
+            //}
             state.pop_back();
         }
     } else {
@@ -89,24 +95,65 @@ bool BBDFS(uint &a, uint &n, vector<vector<bool>>& graph, vector<int> state, uin
     return true;
 }
 
+
+bool BBDFSParTask(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state, uint stateSize, uint &minPrice, uint depth, vector<int> &result) {
+
+    int firstNode;
+    int tmpPrice;
+
+    if ( depth < a ) {
+        if ( depth == 0 ) {
+            firstNode = 0;
+        } else {
+            firstNode = state[stateSize - 1] + 1;
+        }
+        for (int i = firstNode; i < n; ++i) {
+            state.push_back(i);
+            //tmpPrice = price(graph, state, stateSize + 1);
+            if ( (stateSize + 1) == a ) {
+                tmpPrice = price(graph, state, stateSize + 1);
+                if (tmpPrice < minPrice) {
+                    #pragma omp critical
+                    {
+                        if (tmpPrice < minPrice) {
+                            minPrice = tmpPrice;
+                            result = state;
+                        }
+                    }
+                }
+                //cout << tmpPrice << ": " << state;
+            }
+            //if ( tmpPrice <= (minPrice + stateSize)) {
+            #pragma omp task shared(a,n,graph,minPrice,result) if ( (a - depth) > threshold )
+            BBDFSParTask(a, n, graph, state, stateSize + 1, minPrice, depth + 1, result);
+            //}
+            state.pop_back();
+        }
+    } else {
+        return false;
+    }
+
+    return true;
+}
+
 int main(int argc, char const* argv[]) {
 
-    if ( argc < 5 ) {
+    if (argc < 5) {
         help();
         return 1;
     }
 
-    uint n = strtoul (argv[1], NULL, 0);
-    uint k = strtoul (argv[2], NULL, 0);
-    uint a = strtoul (argv[4], NULL, 0);
-    vector<vector<bool>> graph;
+    uint n = strtoul(argv[1], NULL, 0);
+    uint k = strtoul(argv[2], NULL, 0);
+    uint a = strtoul(argv[4], NULL, 0);
+    vector<vector<bool> > graph;
     vector<bool> graphLine;
     int nodes;
     string node;
 
     ifstream inputFile;
     inputFile.open(argv[3]);
-    if ( inputFile.is_open() ) {
+    if (inputFile.is_open()) {
         inputFile >> dec >> nodes;
         for (int i = 0; i < nodes; ++i) {
             inputFile >> node;
@@ -131,7 +178,7 @@ int main(int argc, char const* argv[]) {
     uint edges = 0;
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < i; ++j) {
-            if ( graph[i][j] == 1 ) edges++;
+            if (graph[i][j] == 1) edges++;
         }
     }
 
@@ -144,13 +191,26 @@ int main(int argc, char const* argv[]) {
         tmpEdges = 0;
     }
 
+    threshold = a - floor(a/3);
+
+    cout << "threshold = " << threshold << endl;
+
     clock_t timeStart = clock();
-    BBDFS(a, n, graph, state, 0, edges, 0, result);
-    double duration = ( clock() - timeStart ) / (double) CLOCKS_PER_SEC;
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            //BBDFSSec(a, n, graph, state, 0, edges, 0, result);
+            BBDFSParTask(a, n, graph, state, 0, edges, 0, result);
+        }
+    }
+
+    double duration = (clock() - timeStart) / (double) CLOCKS_PER_SEC;
 
     cout << "n = " << result;
     cout << "edges = " << edges << endl;
-    cout << "time = " << duration << endl;
+    //cout << "time = " << duration << endl;
 
     inputFile.close();
 
