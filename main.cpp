@@ -142,7 +142,7 @@ bool BBDFSPar(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state,
 
     cout << "queue size = " << q.size() << endl;
 
-    #pragma omp parallel for schedule(dynamic) num_threads(4)
+    #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < q.size(); ++i) {
         DFSState current = q[i];
         BBDFSSec(a, n, graph, current.state, current.stateSize, current.minPrice, current.depth, result);
