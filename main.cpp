@@ -15,6 +15,7 @@ static const int tag_finished = 2;
 using namespace std;
 
 int threshold;
+int maxThread;
 vector<int> state, result, edgesList;
 
 void help() {
@@ -191,7 +192,7 @@ bool BBDFSPar(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> state,
 //                    cout << "|" << proc_num << "| " << current.state;
 //                }
 
-                #pragma omp parallel for schedule(dynamic)
+                #pragma omp parallel for schedule(dynamic) num_threads(maxThread)
                 for (int i = 0; i < q.size(); ++i) {
                     DFSState current = q[i];
                     BBDFSSec(a, n, graph, current.state, current.stateSize, current.minPrice, current.depth, result);
@@ -256,7 +257,7 @@ bool BBDFSParTask(uint &a, uint &n, vector<vector<bool> >& graph, vector<int> st
 
 int main(int argc, char * argv[]) {
 
-    if (argc < 5) {
+    if (argc < 6) {
         help();
         return 1;
     }
@@ -278,6 +279,7 @@ int main(int argc, char * argv[]) {
     uint n = strtoul(argv[1], NULL, 0);
     uint k = strtoul(argv[2], NULL, 0);
     uint a = strtoul(argv[4], NULL, 0);
+    maxThread = strtoul(argv[5], NULL, 0);
     vector<vector<bool> > graph;
     vector<bool> graphLine;
     int nodes;
@@ -307,6 +309,7 @@ int main(int argc, char * argv[]) {
 
     if (proc_num == 0) {
         cout << "n = " << n << ", k = " << k << ", a = " << a << endl;
+        cout << "maxThread = " << maxThread << endl;
         //printGraph(graph, nodes);
     }
 

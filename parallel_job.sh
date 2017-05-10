@@ -63,8 +63,7 @@ INFINIBAND="false"
 # | Parallel program with arguments.                                          |
 # |                                                                           |
 #  ===========================================================================
-MY_PARALLEL_PROGRAM="./mpi 50 6 data/graph50_6.txt 7"
-
+MY_PARALLEL_PROGRAM="./mpi 30 5 data/graph30_5.txt 7 10"
 
 
 #  ===========================================================================
